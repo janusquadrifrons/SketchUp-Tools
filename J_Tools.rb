@@ -104,13 +104,13 @@ j_toolbar = UI::Toolbar.new "J_Tools"
 j_toolbar.show
 
 # Icon definitions
-icon_project_to_line = File.join(__dir__, "J_Tools", "projecttoline_24.png")
+icon_project_to_line = File.join(__dir__, "J_Tools_icons", "projecttoline_24.png")
 cmd_projet_to_line.small_icon = icon_project_to_line
 cmd_projet_to_line.large_icon = icon_project_to_line
 cmd_projet_to_line.tooltip = "J_ProjectToLine"
 cmd_projet_to_line.status_bar_text = "Project your point to your lines."
 
-icon_line_from_origin = File.join(__dir__, "J_Tools", "linefromorigin_24.png")
+icon_line_from_origin = File.join(__dir__, "J_Tools_icons", "linefromorigin_24.png")
 cmd_line_from_origin.small_icon = icon_line_from_origin
 cmd_line_from_origin.large_icon = icon_line_from_origin
 cmd_line_from_origin.tooltip = "J_LineFromOrigin"
