@@ -167,11 +167,21 @@ class SeparateBlocks
             return
         end
 
-        definitions = model.definitions
-        if definitions.length == 0
-            puts "Error: No components or groups found"
-            UI.messagebox("Error: No components or groups found in the model.")
+        if model.path.empty?
+            puts "Error: Model has not been saved"
+            UI.messagebox("Error: Model has not been saved. Please save the model first.")
             return
+        end
+
+        definitions = model.definitions 
+
+        # Query definitions list if there is any definitions has a name with empty string
+        definitions.each do |definition|
+            if definition.name.length == 0
+                puts "Error: One or more definitions have no name."
+                UI.messagebox("Error: One or more definitions have no name.")
+                return
+            end
         end
 
         begin
@@ -182,49 +192,52 @@ class SeparateBlocks
   
             component_count = 0
             group_count = 0
-
+            
+            begin
             # Iterate through all definitions
             definitions.each do |definition|
                 next if definition.image?
-                next if definition.group?
-                next if definition.name.empty?
+                # Check if the definition name is 0 length
                 next if definition.deleted?
+            
+            rescue => error
+                puts "Error in separete_blocks definitons : #{error.message}"
+                UI.messagebox("Error: #{error.message}")
   
                 begin
-
                     # Create a new model by saving a blank SketchUp file
                     new_model = Sketchup.file_new
                     new_entities = new_model.active_entities
                     
                     # Add an instance of the component to the new model
-                    new_entities.add_instance(definition, Geom::Transformation.new)
+                    new_instance = new_entities.add_instance(definition, Geom::Transformation.identity)
 
                     # Save the new model
-                    filename = File.join(blocks_folder, "#{definition.name}.skp")
+                    filename = File.join(blocks_folder, "#{definition.name}.skp") # TODO : gsub ile isim düzenleme yapılabilir
                     new_model.save(filename)
                     puts "Saved #{definition.name} to #{filename}"
 
                     # Close the new model
                     new_model.close
 
-                    component_count += 1
+                    component_count += 1 if definition.is_a?(Sketchup::ComponentDefinition)
+                    group_count += 1 if definition.is_a?(Sketchup::Group)
                 rescue => error
                     puts "Error saving #{definition.name}: #{error.message}"
+                    UI.messagebox("Error saving #{definition.name}: #{error.message}")
                 end
             end
 
-            if component_count > 0
-                message = "#{component_count} components have been saved to the 'Blocks' folder."
+            
+                message = "#{component_count} components ang #{group_count} groups have been saved to the 'Blocks' folder."
                 puts message
                 UI.messagebox(message)
-            else
-                puts "No components were saved."
-                UI.messagebox("No components were saved.")
-            end
         rescue => error
-            puts "Error in separete_blcoks method: #{error.message}"
+            puts "Error in separete_blocks method: #{error.message}"
             UI.messagebox("Error: #{error.message}")
         end
+        # Refresh the model
+        model.active_view.refresh
     end
 end
 
@@ -292,4 +305,4 @@ j_toolbar.add_item cmd_separate_blocks
 
 puts "Menu and toolbaritems added."
 
-
+end
