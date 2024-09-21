@@ -155,91 +155,118 @@ end
 
 # Command Class - SeparateBlcoks : Extracts and saves all components and groups to separate files in "Blocks" folder of current file path
 class SeparateBlocks
-
-    # Initialize the input point upon start
     def self.separate_blocks
-        puts "Starting to separate blocks."
-
-        model = Sketchup.active_model
-        if model.nil?
-            puts "Error: No active model"
-            UI.messagebox("Error: No active model. Please open a SketchUp model first.")    
-            return
-        end
-
-        if model.path.empty?
-            puts "Error: Model has not been saved"
-            UI.messagebox("Error: Model has not been saved. Please save the model first.")
-            return
-        end
-
-        definitions = model.definitions 
-
-        # Query definitions list if there is any definitions has a name with empty string
-        definitions.each do |definition|
-            if definition.name.length == 0
-                puts "Error: One or more definitions have no name."
-                UI.messagebox("Error: One or more definitions have no name.")
-                return
-            end
-        end
-
-        begin
-            # Create a new folder to save the blocks
-            blocks_folder = File.join(File.dirname(model.path), "Blocks") # --- File.dirname(model.path) : returns the path of the current file
-            Dir.mkdir(blocks_folder) unless File.directory?(blocks_folder) # --- Dir.mkdir : creates a new directory
-            puts "Blocks folder created or already exist at #{blocks_folder}"
+      puts "Starting to separate blocks."
   
-            component_count = 0
-            group_count = 0
+      model = Sketchup.active_model
+      if model.nil?
+        puts "Error: No active model"
+        UI.messagebox("Error: No active model. Please open a SketchUp model first.")
+        return
+      end
+  
+      if model.path.empty?
+        puts "Error: Model has not been saved"
+        UI.messagebox("Error: Model has not been saved. Please save the model first.")
+        return
+      end
+  
+      # Create the Blocks folder
+      blocks_folder = File.join(File.dirname(model.path), "Blocks")
+      Dir.mkdir(blocks_folder) unless File.directory?(blocks_folder)
+      puts "Blocks folder created or already exists at #{blocks_folder}"
+  
+      component_count = 0
+      group_count = 0
+  
+      # Iterate through all component definitions
+      model.definitions.each do |definition|
+        next if definition.image? || definition.deleted? || definition.group?
+  
+        begin
+            begin
+                # Create a new empty model
+                new_model = Sketchup.file_new
+          
+            rescue => error
+                puts "Error creating new model for component #{definition.name}: #{error.message}"
+            end
+
+            begin
+                new_entities = new_model.entities
+
+            rescue => error
+                puts "Error creating new entities for component #{definition.name}: #{error.message}"
+            end
+          
+            begin
+                # Add an instance of the component to the new model
+                new_entities.add_instance(definition, Geom::Transformation.new)
+            rescue => error
+                puts "Error adding instance of component #{definition.name}: #{error.message}"
+            end
             
             begin
-            # Iterate through all definitions
-            definitions.each do |definition|
-                next if definition.image?
-                # Check if the definition name is 0 length
-                next if definition.deleted?
-            
+                # Save the new model
+                filename = File.join(blocks_folder, "#{definition.name}.skp")
+                new_model.save(filename)
+                puts "Saved component #{definition.name} to #{filename}"
             rescue => error
-                puts "Error in separete_blocks definitons : #{error.message}"
-                UI.messagebox("Error: #{error.message}")
-  
-                begin
-                    # Create a new model by saving a blank SketchUp file
-                    new_model = Sketchup.file_new
-                    new_entities = new_model.active_entities
-                    
-                    # Add an instance of the component to the new model
-                    new_instance = new_entities.add_instance(definition, Geom::Transformation.identity)
-
-                    # Save the new model
-                    filename = File.join(blocks_folder, "#{definition.name}.skp") # TODO : gsub ile isim düzenleme yapılabilir
-                    new_model.save(filename)
-                    puts "Saved #{definition.name} to #{filename}"
-
-                    # Close the new model
-                    new_model.close
-
-                    component_count += 1 if definition.is_a?(Sketchup::ComponentDefinition)
-                    group_count += 1 if definition.is_a?(Sketchup::Group)
-                rescue => error
-                    puts "Error saving #{definition.name}: #{error.message}"
-                    UI.messagebox("Error saving #{definition.name}: #{error.message}")
-                end
+                puts "Error handling save path of #{definition.name}: #{error.message}"    
             end
 
-            
-                message = "#{component_count} components ang #{group_count} groups have been saved to the 'Blocks' folder."
-                puts message
-                UI.messagebox(message)
+            component_count += 1
+          rescue => error
+            puts "Error saving component : #{error.message}"
+          end
+      end
+  
+      # Iterate through all groups in the active model
+      model.entities.grep(Sketchup::Group).each do |group|
+        begin
+            begin
+                # Create a new empty model for the group
+                new_model = Sketchup.file_new
+            rescue => error
+                puts "Error creating new model for group #{group.name}: #{error.message}"
+            end
+
+            begin   
+                new_entities = new_model.entities
+            rescue => error
+                puts "Error creating new entities for group #{group.name}: #{error.message}"
+            end
+            begin
+                # Add an instance of the group to the new model
+                new_entities.add_instance(group.definition, Geom::Transformation.new)
+            rescue => error
+                puts "Error adding instance of group #{group.name}: #{error.message}"
+            end
+
+            begin
+                # Save the new model
+                filename = File.join(blocks_folder, "#{group.name}.skp")
+                new_model.save(filename)
+                puts "Saved group #{group.name} to #{filename}"
+            rescue => error
+                puts "Error handling save path of #{group.name}: #{error.message}"
+            end
+  
+          group_count += 1
         rescue => error
-            puts "Error in separete_blocks method: #{error.message}"
-            UI.messagebox("Error: #{error.message}")
+          puts "Error saving group #{group.name}: #{error.message}"
         end
-        # Refresh the model
-        model.active_view.refresh
+      end
+  
+      message = "#{component_count} components and #{group_count} groups have been saved to the 'Blocks' folder."
+      puts message
+      UI.messagebox(message)
+  
+      model.active_view.refresh
     end
-end
+  end
+  
+  
 
 # Create the command objects
 cmd_projet_to_line = UI::Command.new("J_ProjectToLine") {
@@ -305,4 +332,4 @@ j_toolbar.add_item cmd_separate_blocks
 
 puts "Menu and toolbaritems added."
 
-end
+
